@@ -5,9 +5,15 @@ public class Movement : MonoBehaviour
 {
     private Rigidbody2D rb;
     public float speed = 5f;
+    public float jumpForce = 10f;
+
+    public Transform groundCheck;
+    public float groundCheckRadius = 0.2f;
+    public LayerMask groundLayerMask;
 
     private InputSystem_Actions controls;
     private Vector2 moveInput;
+    private bool isGrounded;
 
     void Awake()
     {
@@ -20,12 +26,14 @@ public class Movement : MonoBehaviour
         controls.Enable();
         controls.Player.Move.performed += OnMovementPerformed;
         controls.Player.Move.canceled += OnMovementCanceled;
+        controls.Player.Jump.performed += OnJumpPerformed;
     }
 
     private void OnDisable()
     {
         controls.Player.Move.performed -= OnMovementPerformed;
         controls.Player.Move.canceled -= OnMovementCanceled;
+        controls.Player.Jump.performed -= OnJumpPerformed;
         controls.Disable();
     }
 
@@ -39,8 +47,45 @@ public class Movement : MonoBehaviour
         moveInput = Vector2.zero;
     }
 
+    private void OnJumpPerformed(InputAction.CallbackContext context)
+    {
+        if (isGrounded)
+        {
+            rb.linearVelocity = new Vector2(rb.linearVelocity.x, jumpForce);
+        }
+    }
+
+    [Header("Better Jump Settings")]
+    public float fallMultiplier = 2.5f;
+    public float lowJumpMultiplier = 2f;
+    
     void FixedUpdate()
     {
+        //is grounded?
+        isGrounded = Physics2D.OverlapCircle(groundCheck.position, groundCheckRadius, groundLayerMask);
+        
+        //movement
         rb.linearVelocity = new Vector2(moveInput.x * speed, rb.linearVelocity.y);
+        
+        //better jump physics
+        if (rb.linearVelocity.y < 0)
+        {
+            //apply fall multiplier for faster descent
+            rb.linearVelocity += Vector2.up * Physics2D.gravity.y * (fallMultiplier - 1) * Time.fixedDeltaTime;
+        }
+        else if (rb.linearVelocity.y > 0 && !controls.Player.Jump.IsPressed())
+        {
+            //rising but jump button not held
+            rb.linearVelocity += Vector2.up * Physics2D.gravity.y * (lowJumpMultiplier - 1) * Time.fixedDeltaTime;
+        }
+    }
+
+    private void OnDrawGizmosSelected()
+    {
+        if (groundCheck != null)
+        {
+            Gizmos.color = isGrounded ? Color.green : Color.red;
+            Gizmos.DrawWireSphere(groundCheck.position, groundCheckRadius);
+        }
     }
 }
