@@ -20,7 +20,24 @@ public class CameraController : MonoBehaviour
     private Vector3 targetPosition;
     private bool leftZoneActive = true;
     private bool rightZoneActive = true;
+
+    public AudioClip soundEffectOne;
+    private AudioSource audioSource;
+
+    public AudioClip rumbleSound;
+    private AudioSource rumbleSource;
     
+    void Awake()
+    {
+        audioSource = GetComponent<AudioSource>();
+
+        rumbleSource = gameObject.AddComponent<AudioSource>();
+        rumbleSource.clip = rumbleSound;
+        rumbleSource.loop = true;
+        rumbleSource.playOnAwake = false;
+        rumbleSource.volume = 0f;
+    }
+
     void LateUpdate()
     {
         if (target == null) return;
@@ -36,11 +53,14 @@ public class CameraController : MonoBehaviour
         //if left or right boundary is hit, toggle zones
         if (Mathf.Approximately(clampedX, leftBoundary))
         {
+            if (leftZoneActive) { audioSource.PlayOneShot(soundEffectOne); }
+
             leftZoneActive = false;
             rightZoneActive = true;
         }
         else if (Mathf.Approximately(clampedX, rightBoundary))
         {
+            if (rightZoneActive) { audioSource.PlayOneShot(soundEffectOne); }
             leftZoneActive = true;
             rightZoneActive = false;
         }
@@ -74,8 +94,16 @@ public class CameraController : MonoBehaviour
             float actualIntensity = shakeIntensity * maxShakeIntensity;
             float shakeX = Mathf.Sin(Time.time * shakeFrequency) * actualIntensity;
             float shakeY = Mathf.Cos(Time.time * shakeFrequency * 1.1f) * actualIntensity;
+
+            if (!rumbleSource.isPlaying)
+                rumbleSource.Play();
+
+            rumbleSource.volume = Mathf.Clamp01(shakeIntensity);
             
             return new Vector3(shakeX, shakeY, 0);
+        } else {
+            if (rumbleSource.isPlaying)
+                rumbleSource.Stop();
         }
         
         return Vector3.zero;
