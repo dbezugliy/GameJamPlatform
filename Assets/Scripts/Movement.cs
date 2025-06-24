@@ -4,12 +4,20 @@ using UnityEngine.InputSystem;
 public class Movement : MonoBehaviour
 {
     private Rigidbody2D rb;
+    private AirControl airControl;
+
+    [Header("Movement Settings")]
     public float speed = 5f;
     public float jumpForce = 10f;
 
+    [Header("Ground Check")]
     public Transform groundCheck;
     public float groundCheckRadius = 0.2f;
     public LayerMask groundLayerMask;
+
+    [Header("Better Jump Settings")]
+    public float fallMultiplier = 2.5f;
+    public float lowJumpMultiplier = 2f;
 
     private InputSystem_Actions controls;
     private Vector2 moveInput;
@@ -19,6 +27,7 @@ public class Movement : MonoBehaviour
     {
         controls = new InputSystem_Actions();
         rb = GetComponent<Rigidbody2D>();
+        airControl = GetComponent<AirControl>();
     }
 
     private void OnEnable()
@@ -54,28 +63,27 @@ public class Movement : MonoBehaviour
             rb.linearVelocity = new Vector2(rb.linearVelocity.x, jumpForce);
         }
     }
-
-    [Header("Better Jump Settings")]
-    public float fallMultiplier = 2.5f;
-    public float lowJumpMultiplier = 2f;
     
     void FixedUpdate()
     {
         //is grounded?
         isGrounded = Physics2D.OverlapCircle(groundCheck.position, groundCheckRadius, groundLayerMask);
+
+        airControl.ApplyMovement(moveInput.x, speed, isGrounded);
         
-        //movement
-        rb.linearVelocity = new Vector2(moveInput.x * speed, rb.linearVelocity.y);
-        
-        //better jump physics
+        ApplyJumpPhysics();
+    }
+
+    private void ApplyJumpPhysics()
+    {
         if (rb.linearVelocity.y < 0)
         {
-            //apply fall multiplier for faster descent
+            //apply fall multiplier
             rb.linearVelocity += Vector2.up * Physics2D.gravity.y * (fallMultiplier - 1) * Time.fixedDeltaTime;
-        }
+        } 
         else if (rb.linearVelocity.y > 0 && !controls.Player.Jump.IsPressed())
         {
-            //rising but jump button not held
+            //jump button not held
             rb.linearVelocity += Vector2.up * Physics2D.gravity.y * (lowJumpMultiplier - 1) * Time.fixedDeltaTime;
         }
     }
