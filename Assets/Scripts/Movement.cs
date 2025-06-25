@@ -6,6 +6,9 @@ public class Movement : MonoBehaviour
     private Rigidbody2D rb;
     private AirControl airControl;
 
+    //Used for FSM movement
+    private MovementState currentState;
+
     [Header("Movement Settings")]
     public float speed = 5f;
     public float jumpForce = 10f;
@@ -21,60 +24,104 @@ public class Movement : MonoBehaviour
 
     private InputSystem_Actions controls;
     private Vector2 moveInput;
-    private bool isGrounded;
+    public bool isGrounded { get; private set; }
+
+    public IdleState idleState { get; private set; }
+    public RunState runState { get; private set; }
+    public JumpState jumpState { get; private set; }
+    public FallState fallState { get; private set; }
 
     void Awake()
     {
         controls = new InputSystem_Actions();
         rb = GetComponent<Rigidbody2D>();
         airControl = GetComponent<AirControl>();
+
+        // Pre-create state instances
+        idleState = new IdleState(this);
+        runState = new RunState(this);
+        jumpState = new JumpState(this);
+        fallState = new FallState(this);
+
+        //Initialize FSM
+        TransitionToState(new IdleState(this));
     }
 
     private void OnEnable()
     {
         controls.Enable();
-        controls.Player.Move.performed += OnMovementPerformed;
-        controls.Player.Move.canceled += OnMovementCanceled;
-        controls.Player.Jump.performed += OnJumpPerformed;
+        controls.Player.Move.performed += ctx => moveInput = ctx.ReadValue<Vector2>();
+        controls.Player.Move.canceled += ctx => moveInput = Vector2.zero;
+        //controls.Player.Move.performed += OnMovementPerformed;
+        //controls.Player.Move.canceled += OnMovementCanceled;
+        //controls.Player.Jump.performed += OnJumpPerformed;
     }
 
     private void OnDisable()
     {
-        controls.Player.Move.performed -= OnMovementPerformed;
-        controls.Player.Move.canceled -= OnMovementCanceled;
-        controls.Player.Jump.performed -= OnJumpPerformed;
+        //controls.Player.Move.performed -= OnMovementPerformed;
+        //controls.Player.Move.canceled -= OnMovementCanceled;
+        //controls.Player.Jump.performed -= OnJumpPerformed;
         controls.Disable();
     }
 
-    private void OnMovementPerformed(InputAction.CallbackContext context)
+    //FSM
+    void Update()
     {
-        moveInput = context.ReadValue<Vector2>();
-    }
-
-    private void OnMovementCanceled(InputAction.CallbackContext context)
-    {
-        moveInput = Vector2.zero;
-    }
-
-    private void OnJumpPerformed(InputAction.CallbackContext context)
-    {
-        if (isGrounded)
-        {
-            rb.linearVelocity = new Vector2(rb.linearVelocity.x, jumpForce);
-        }
-    }
-    
-    void FixedUpdate()
-    {
-        //is grounded?
         isGrounded = Physics2D.OverlapCircle(groundCheck.position, groundCheckRadius, groundLayerMask);
-
-        airControl.ApplyMovement(moveInput.x, speed, isGrounded);
-        
-        ApplyJumpPhysics();
+        currentState.Update();
     }
 
-    private void ApplyJumpPhysics()
+    //private void OnMovementPerformed(InputAction.CallbackContext context)
+    //{
+    //    moveInput = context.ReadValue<Vector2>();
+    //}
+    //
+    //private void OnMovementCanceled(InputAction.CallbackContext context)
+    //{
+    //    moveInput = Vector2.zero;
+    //}
+    //
+    //private void OnJumpPerformed(InputAction.CallbackContext context)
+    //{
+    //    if (isGrounded)
+    //    {
+    //        rb.linearVelocity = new Vector2(rb.linearVelocity.x, jumpForce);
+    //    }
+    //}
+    //
+    //void FixedUpdate()
+    //{
+    //    //is grounded?
+    //    isGrounded = Physics2D.OverlapCircle(groundCheck.position, groundCheckRadius, groundLayerMask);
+    //
+    //    airControl.ApplyMovement(moveInput.x, speed, isGrounded);
+    //    
+    //    ApplyJumpPhysics();
+    //}
+    
+    //Made to use FSM now
+    void FixedUpdate() => currentState.FixedUpdate();
+
+    //needed to transition fsm states
+    public void TransitionToState(MovementState newState)
+    {
+        Debug.Log($"Transitioning to {newState.GetType().Name}");
+        currentState?.ExitState();
+        currentState = newState;
+        currentState.EnterState();
+    }
+
+    public bool IsMoving() => Mathf.Abs(moveInput.x) > 0.1f;
+    public bool IsJumpPressed() => controls.Player.Jump.IsPressed();
+
+    public void ApplyMovement()
+    {
+        rb.linearVelocity = new Vector2(moveInput.x * speed, rb.linearVelocity.y);
+    }
+
+    //made public because lazy
+    public void ApplyJumpPhysics()
     {
         if (rb.linearVelocity.y < 0)
         {
