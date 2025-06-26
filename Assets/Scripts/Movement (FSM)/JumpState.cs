@@ -2,14 +2,17 @@ using UnityEngine;
 
 public class JumpState : MovementState
 {
-    public JumpState(Movement movement) : base(movement) 
-    {
-        
-    }
+    public JumpState(Movement movement) : base(movement) { }
 
     public override void EnterState()
     {
         rb.linearVelocity = new Vector2(rb.linearVelocity.x, movement.jumpForce);
+    }
+
+    public override void FixedUpdate()
+    {
+        movement.ApplyMovement();
+        movement.ApplyJumpPhysics();
     }
 
     public override void Update()
@@ -25,12 +28,18 @@ public class FallState : MovementState
 
     public override void FixedUpdate()
     {
+        movement.ApplyMovement();
         movement.ApplyJumpPhysics();
     }
 
     public override void Update()
     {
         if (movement.isGrounded)
-            movement.TransitionToState(movement.idleState);
+        {
+            if (movement.IsMoving())
+                movement.TransitionToState(movement.runState);
+            else
+                movement.TransitionToState(movement.idleState);
+        }
     }
 }

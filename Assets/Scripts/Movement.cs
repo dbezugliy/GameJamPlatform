@@ -4,13 +4,13 @@ using UnityEngine.InputSystem;
 public class Movement : MonoBehaviour
 {
     private Rigidbody2D rb;
-    private AirControl airControl;
+    //private AirControl airControl;
 
     //Used for FSM movement
     private MovementState currentState;
 
     [Header("Movement Settings")]
-    public float speed = 5f;
+    public float speed = 10f;
     public float jumpForce = 10f;
 
     [Header("Ground Check")]
@@ -22,6 +22,11 @@ public class Movement : MonoBehaviour
     public float fallMultiplier = 2.5f;
     public float lowJumpMultiplier = 2f;
 
+    [Header("Momentum Settings")]
+    public float acceleration = 10f;
+    public float deceleration = 30f;
+    public float reverseDecelerationMultiplier = 1.5f;
+
     private InputSystem_Actions controls;
     private Vector2 moveInput;
     public bool isGrounded { get; private set; }
@@ -31,11 +36,14 @@ public class Movement : MonoBehaviour
     public JumpState jumpState { get; private set; }
     public FallState fallState { get; private set; }
 
+    //manual speed not using unitys
+    private float horizontalSpeed = 0f;
+
     void Awake()
     {
         controls = new InputSystem_Actions();
         rb = GetComponent<Rigidbody2D>();
-        airControl = GetComponent<AirControl>();
+        //airControl = GetComponent<AirControl>();
 
         // Pre-create state instances
         idleState = new IdleState(this);
@@ -70,6 +78,7 @@ public class Movement : MonoBehaviour
     {
         isGrounded = Physics2D.OverlapCircle(groundCheck.position, groundCheckRadius, groundLayerMask);
         currentState.Update();
+        //Debug.Log($"velocity {rb.linearVelocity}");
     }
 
     //private void OnMovementPerformed(InputAction.CallbackContext context)
@@ -106,7 +115,7 @@ public class Movement : MonoBehaviour
     //needed to transition fsm states
     public void TransitionToState(MovementState newState)
     {
-        Debug.Log($"Transitioning to {newState.GetType().Name}");
+        //Debug.Log($"Transitioning to {newState.GetType().Name}");
         currentState?.ExitState();
         currentState = newState;
         currentState.EnterState();
@@ -117,7 +126,18 @@ public class Movement : MonoBehaviour
 
     public void ApplyMovement()
     {
-        rb.linearVelocity = new Vector2(moveInput.x * speed, rb.linearVelocity.y);
+        float targetSpeed = moveInput.x * speed;
+        float currentSpeed = horizontalSpeed;
+
+        bool reversing = Mathf.Sign(targetSpeed) != 0 && Mathf.Sign(currentSpeed) != Mathf.Sign(targetSpeed);
+
+        float accelRate = Mathf.Abs(targetSpeed) > 0.01f ? (reversing ? deceleration * reverseDecelerationMultiplier : acceleration): deceleration;
+
+        horizontalSpeed = Mathf.MoveTowards(currentSpeed, targetSpeed, accelRate * Time.fixedDeltaTime);
+
+        rb.linearVelocity = new Vector2(horizontalSpeed, rb.linearVelocity.y);
+
+        //rb.linearVelocity = new Vector2(moveInput.x * speed, rb.linearVelocity.y);
     }
 
     //made public because lazy

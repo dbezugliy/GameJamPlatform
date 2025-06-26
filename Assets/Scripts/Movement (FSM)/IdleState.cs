@@ -4,6 +4,11 @@ public class IdleState : MovementState
 {
     public IdleState(Movement movement) : base(movement) { }
 
+    public override void FixedUpdate()
+    {
+        movement.ApplyMovement();
+    }
+
     public override void Update()
     {
         if (movement.IsMoving())
