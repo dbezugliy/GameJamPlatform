@@ -46,6 +46,11 @@ public class Movement : MonoBehaviour
         controls.Disable();
     }
 
+    public void pleaseDisable()
+    {
+        OnDisable();
+    }
+
     private void OnMovementPerformed(InputAction.CallbackContext context)
     {
         moveInput = context.ReadValue<Vector2>();

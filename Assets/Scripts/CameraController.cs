@@ -17,9 +17,14 @@ public class CameraController : MonoBehaviour
     public float maxShakeIntensity = 0.03f;
     public float shakeFrequency = 40f;
     
+    [Header("Level Transition")]
+    public LevelTransitionManager transitionManager;
+    
     private Vector3 targetPosition;
     private bool leftZoneActive = true;
     private bool rightZoneActive = true;
+    private bool leftTransitionTriggered = false;
+    private bool rightTransitionTriggered = false;
 
     public AudioClip soundEffectOne;
     private AudioSource audioSource;
@@ -50,23 +55,56 @@ public class CameraController : MonoBehaviour
         
         targetPosition = new Vector3(clampedX, clampedY, targetPosition.z);
         
-        //if left or right boundary is hit, toggle zones
+        // Check for boundary hits and transitions
+        CheckBoundaryTransitions(clampedX);
+        
+        Vector3 shakeOffset = CalculateShakeOffset();
+        transform.position = targetPosition + shakeOffset;
+    }
+    
+    private void CheckBoundaryTransitions(float clampedX)
+    {
+        //if left boundary is hit
         if (Mathf.Approximately(clampedX, leftBoundary))
         {
-            if (leftZoneActive) { audioSource.PlayOneShot(soundEffectOne); }
+            if (leftZoneActive && !leftTransitionTriggered) 
+            { 
+                Debug.Log("Hit left boundary");
+                audioSource.PlayOneShot(soundEffectOne);
+                TriggerLevelTransition();
+                leftTransitionTriggered = true;
+            }
 
             leftZoneActive = false;
             rightZoneActive = true;
         }
+        //if right boundary is hit
         else if (Mathf.Approximately(clampedX, rightBoundary))
         {
-            if (rightZoneActive) { audioSource.PlayOneShot(soundEffectOne); }
+            if (rightZoneActive && !rightTransitionTriggered) 
+            { 
+                Debug.Log("Hit right boundary");
+                audioSource.PlayOneShot(soundEffectOne);
+                TriggerLevelTransition();
+                rightTransitionTriggered = true;
+            }
             leftZoneActive = true;
             rightZoneActive = false;
         }
-        
-        Vector3 shakeOffset = CalculateShakeOffset();
-        transform.position = targetPosition + shakeOffset;
+        else
+        {
+            //reset transition flags
+            if (!Mathf.Approximately(clampedX, leftBoundary))
+                leftTransitionTriggered = false;
+            if (!Mathf.Approximately(clampedX, rightBoundary))
+                rightTransitionTriggered = false;
+        }
+    }
+    
+    private void TriggerLevelTransition()
+    {        
+        Debug.Log("next level transition");
+        transitionManager.StartNextTransition();
     }
     
     Vector3 CalculateShakeOffset()
@@ -78,7 +116,7 @@ public class CameraController : MonoBehaviour
         float normalizedX = (playerX - leftBoundary) / mapWidth;
         float shakeIntensity = 0f;
         
-        //increases shake when appraching left or right boundaries
+        //increases shake when approaching left or right boundaries
         if (leftZoneActive && normalizedX <= 0.25f)
         {
             shakeIntensity = Mathf.Lerp(0f, 1f, (0.25f - normalizedX) / 0.25f);
